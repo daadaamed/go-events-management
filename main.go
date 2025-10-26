@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/daadaamed/goeventmanagement/controllers"
 	"github.com/daadaamed/goeventmanagement/utils"
 	"github.com/gin-gonic/gin"
 )
@@ -16,5 +17,6 @@ func main() {
 			"message": "pong",
 		})
 	})
+	router.GET("/events", controllers.GetEvents)
 	router.Run()
 }
