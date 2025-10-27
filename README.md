@@ -37,3 +37,15 @@ curl -s localhost:8080/events | jq
 ```bash
 curl -s localhost:8080/events/:id | jq 
 ```
+
+
+### Database choice
+MongoDB was chosen for flexibility ( payload could contain different datas) and futur improvements for the app.
+Atomic upsert with $setOnInsert + $inc enables counter increments easily.
+
+### Handling concurrent request 
+The unique index prevents duplicates.
+
+The single upsert ensures count increments are not lost even with many concurrent writers.
+
+Timestamps: first_added stays fixed; last_added/updated_at update on each ingestion.
