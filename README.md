@@ -1,4 +1,4 @@
-#Event Management API
+# Event Management API
 
 A simple Go + Gin + MongoDB event management service.
 
