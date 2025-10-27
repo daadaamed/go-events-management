@@ -26,6 +26,8 @@ func main() {
 		})
 	})
 	eventHandler.RegisterRoutes(router)
+	// Add Swagger route
+	// router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	if err := router.Run(":8080"); err != nil {
 		panic(err)
 	}
