@@ -1,30 +1,15 @@
 package controllers
 
 import (
+	"context"
 	"net/http"
 	"time"
 
+	"github.com/daadaamed/goeventmanagement/utils"
 	"github.com/gin-gonic/gin"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
-
-var events = []Event{
-	{
-		ID:        1,
-		Source:    "app.web",
-		Type:      "user_login",
-		Timestamp: time.Date(2025, 1, 2, 15, 4, 5, 0, time.UTC),
-		Payload:   map[string]interface{}{"user_id": 123, "ip": "1.2.3.4"},
-		Count:     2,
-	},
-	{
-		ID:        2,
-		Source:    "worker.jobs",
-		Type:      "job_completed",
-		Timestamp: time.Date(2025, 1, 3, 10, 0, 0, 0, time.UTC),
-		Payload:   map[string]interface{}{"job_id": "abc-42", "duration_ms": 840},
-		Count:     1,
-	},
-}
 
 type Event struct {
 	ID        int64                  `json:"id"`
@@ -37,10 +22,23 @@ type Event struct {
 
 // GET /events
 func GetEvents(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"message": "list of events (placeholder)",
-		"events":  events,
-	})
+	col := utils.DB.Collection("events")
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 3*time.Second)
+	defer cancel()
+
+	cur, err := col.Find(ctx, bson.D{}, options.Find().SetLimit(50).SetSort(bson.D{{Key: "timestamp", Value: -1}}))
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
+	}
+	defer cur.Close(ctx)
+
+	var out []Event
+	if err := cur.All(ctx, &out); err != nil {
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, out)
 }
 
 // TODO : add POST /events

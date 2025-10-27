@@ -1,0 +1,41 @@
+# Binaries for programs and plugins
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Build output
+/bin/
+/pkg/
+
+# Vendored dependencies (remove if you vendor intentionally)
+vendor/
+
+# Go workspace
+go.work
+go.work.sum
+
+# IDEs and editors
+.vscode/
+.idea/
+*.iml
+*.swp
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs, env and coverage
+*.log
+.env
+coverage.out
+*.cover
+*.prof
+
+# Generated files and build artifacts
+*_generated.go
+gen/
+build/
+tmp/
