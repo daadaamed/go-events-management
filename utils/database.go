@@ -6,7 +6,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/lpernett/godotenv"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -17,17 +16,20 @@ var (
 )
 
 func InitDB() (*mongo.Client, *mongo.Database, error) {
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal("Error loading .env file")
+	MONGODB_URI := os.Getenv("MONGODB_URI")
+	if MONGODB_URI == "" {
+		MONGODB_URI = "mongodb://localhost:27017"
 	}
 
-	uri := os.Getenv("MONGODB_URI")
+	dbName := os.Getenv("MONGO_DB_NAME")
+	if dbName == "" {
+		dbName = "eventsdb"
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	client, err := mongo.Connect(ctx, options.Client().ApplyURI(uri))
+	client, err := mongo.Connect(ctx, options.Client().ApplyURI(MONGODB_URI))
 	if err != nil {
 		log.Fatalf("mongo connect error: %v", err)
 	}
