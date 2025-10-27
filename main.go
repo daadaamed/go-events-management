@@ -2,12 +2,20 @@ package main
 
 import (
 	"github.com/daadaamed/goeventmanagement/controllers"
+	service "github.com/daadaamed/goeventmanagement/services"
 	"github.com/daadaamed/goeventmanagement/utils"
 	"github.com/gin-gonic/gin"
 )
 
 func main() {
-	utils.InitDB()
+	client, db, err := utils.InitDB()
+	if err != nil {
+		panic(err)
+	}
+	defer func() { _ = client.Disconnect(nil) }()
+
+	eventService := service.NewEventService(db)
+	eventHandler := controllers.NewEventHandler(eventService)
 
 	router := gin.New()
 	router.Use(gin.Recovery(), gin.Logger())
@@ -17,6 +25,8 @@ func main() {
 			"message": "pong",
 		})
 	})
-	router.GET("/events", controllers.GetEvents)
-	router.Run()
+	eventHandler.RegisterRoutes(router)
+	if err := router.Run(":8080"); err != nil {
+		panic(err)
+	}
 }
