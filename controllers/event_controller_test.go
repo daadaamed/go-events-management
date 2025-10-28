@@ -22,7 +22,7 @@ type mockSvc struct {
 	getByID  func(id string) (service.Event, error)
 }
 
-func (m *mockSvc) List(_ context.Context, _ int64) ([]service.Event, error) {
+func (m *mockSvc) List(_ context.Context, _ service.ListQuery) ([]service.Event, error) {
 	return m.listFn()
 }
 func (m *mockSvc) Upsert(_ context.Context, in service.EventIn) (service.Event, error) {

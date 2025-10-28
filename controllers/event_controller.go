@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strconv"
 	"time"
 
 	service "github.com/daadaamed/goeventmanagement/services"
@@ -25,10 +26,36 @@ func (h *EventHandler) RegisterRoutes(r *gin.Engine) {
 
 // GET /events
 func (h *EventHandler) GetEvents(c *gin.Context) {
+	limit, _ := strconv.ParseInt(c.DefaultQuery("limit", "50"), 10, 64)
+	offset, _ := strconv.ParseInt(c.DefaultQuery("offset", "0"), 10, 64)
+
+	var fromParsedTime, toParsedTime *time.Time
+	if s := c.Query("from"); s != "" {
+		if t, err := time.Parse(time.RFC3339, s); err == nil {
+			tt := t.UTC()
+			fromParsedTime = &tt
+		}
+	}
+	if s := c.Query("to"); s != "" {
+		if t, err := time.Parse(time.RFC3339, s); err == nil {
+			tt := t.UTC()
+			toParsedTime = &tt
+		}
+	}
+
+	query := service.ListQuery{
+		Source: c.Query("source"),
+		Type:   c.Query("type"),
+		From:   fromParsedTime,
+		To:     toParsedTime,
+		Limit:  limit,
+		Offset: offset,
+	}
+
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 3*time.Second)
 	defer cancel()
 
-	events, err := h.svc.List(ctx, 50)
+	events, err := h.svc.List(ctx, query)
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return
@@ -42,11 +69,11 @@ func (h *EventHandler) GetEventByID(c *gin.Context) {
 	defer cancel()
 	event, err := h.svc.GetByID(ctx, c.Param("id"))
 	if err != nil {
-		status := http.StatusInternalServerError
 		if errors.Is(err, mongo.ErrNoDocuments) {
-			status = http.StatusNotFound
+			c.JSON(http.StatusNotFound, gin.H{"error": "event not found"})
+			return
 		}
-		c.JSON(status, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, event)
@@ -54,8 +81,12 @@ func (h *EventHandler) GetEventByID(c *gin.Context) {
 
 func (h *EventHandler) PostEvent(c *gin.Context) {
 	var in service.EventIn
-	if err := c.ShouldBindJSON(&in); err != nil || in.Source == "" || in.Type == "" || len(in.Payload) == 0 || string(in.Payload) == "null" {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": "invalid body"})
+	if err := c.ShouldBindJSON(&in); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid JSON format"})
+		return
+	}
+	if in.Source == "" || in.Type == "" || len(in.Payload) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "source, type and payload are required"})
 		return
 	}
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 3*time.Second)

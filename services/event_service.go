@@ -17,7 +17,7 @@ import (
 type EventIn struct {
 	Source    string          `json:"source"`
 	Type      string          `json:"type"`
-	Timestamp *time.Time      `json:"timestamp,omitempty"`
+	Timestamp time.Time       `json:"timestamp,omitempty"`
 	Payload   json.RawMessage `json:"payload"`
 }
 
@@ -33,8 +33,17 @@ type Event struct {
 	UpdatedAt   time.Time      `json:"updated_at,omitempty" bson:"updated_at,omitempty"`
 }
 
+type ListQuery struct {
+	Source string
+	Type   string
+	From   *time.Time
+	To     *time.Time
+	Limit  int64 // default 50, max 200
+	Offset int64 // default 0
+}
+
 type EventService interface {
-	List(ctx context.Context, limit int64) ([]Event, error)
+	List(ctx context.Context, query ListQuery) ([]Event, error)
 	Upsert(ctx context.Context, in EventIn) (Event, error)
 	GetByID(ctx context.Context, id string) (Event, error)
 }
@@ -53,8 +62,41 @@ func NewEventService(db *mongo.Database) EventService {
 	return &eventService{col: col}
 }
 
-func (s *eventService) List(ctx context.Context, limit int64) ([]Event, error) {
-	cur, err := s.col.Find(ctx, bson.D{}, options.Find().SetLimit(limit).SetSort(bson.D{{Key: "timestamp", Value: -1}}))
+func (s *eventService) List(ctx context.Context, query ListQuery) ([]Event, error) {
+	if query.Limit <= 0 {
+		query.Limit = 50
+	}
+	if query.Limit > 200 {
+		query.Limit = 200
+	}
+	if query.Offset < 0 {
+		query.Offset = 0
+	}
+
+	filter := bson.D{}
+	if query.Source != "" {
+		filter = append(filter, bson.E{Key: "source", Value: query.Source})
+	}
+	if query.Type != "" {
+		filter = append(filter, bson.E{Key: "type", Value: query.Type})
+	}
+	timeRange := bson.D{}
+	if query.From != nil {
+		timeRange = append(timeRange, bson.E{Key: "$gte", Value: query.From.UTC()})
+	}
+	if query.To != nil {
+		timeRange = append(timeRange, bson.E{Key: "$lt", Value: query.To.UTC()})
+	}
+	if len(timeRange) > 0 {
+		filter = append(filter, bson.E{Key: "timestamp", Value: timeRange})
+	}
+
+	options := options.Find().
+		SetSort(bson.D{{Key: "timestamp", Value: -1}}).
+		SetLimit(query.Limit).
+		SetSkip(query.Offset)
+
+	cur, err := s.col.Find(ctx, filter, options)
 	if err != nil {
 		return nil, err
 	}
@@ -78,23 +120,24 @@ func (s *eventService) GetByID(ctx context.Context, id string) (Event, error) {
 
 func (s *eventService) Upsert(ctx context.Context, input EventIn) (Event, error) {
 	// Normalize payload into a deterministic byte sequence before hashing.
-	var payloadObj any
+	var payloadObj map[string]any
 	if err := json.Unmarshal(input.Payload, &payloadObj); err != nil {
 		return Event{}, fmt.Errorf("parse payload: %w", err)
 	}
+
 	canonicalBytes, err := json.Marshal(payloadObj)
 	if err != nil {
 		return Event{}, fmt.Errorf("canonicalize payload: %w", err)
 	}
+
 	sha256Sum := sha256.Sum256(canonicalBytes)
 	payloadHash := hex.EncodeToString(sha256Sum[:])
 
 	nowUTC := time.Now().UTC()
 
-	var eventTimestamp *time.Time
-	if input.Timestamp != nil {
-		t := input.Timestamp.UTC().Truncate(time.Second)
-		eventTimestamp = &t
+	eventTimestamp := input.Timestamp.UTC().Truncate(time.Second)
+	if input.Timestamp.IsZero() {
+		eventTimestamp = time.Now().UTC().Truncate(time.Second)
 	}
 
 	match := bson.M{
