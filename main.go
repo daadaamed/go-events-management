@@ -2,7 +2,7 @@ package main
 
 import (
 	"github.com/daadaamed/goeventmanagement/controllers"
-	service "github.com/daadaamed/goeventmanagement/services"
+	services "github.com/daadaamed/goeventmanagement/services"
 	"github.com/daadaamed/goeventmanagement/utils"
 	"github.com/gin-gonic/gin"
 )
@@ -14,7 +14,7 @@ func main() {
 	}
 	defer func() { _ = client.Disconnect(nil) }()
 
-	eventService := service.NewEventService(db)
+	eventService := services.NewEventService(db)
 	eventHandler := controllers.NewEventHandler(eventService)
 
 	router := gin.New()

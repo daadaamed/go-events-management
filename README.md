@@ -25,7 +25,7 @@ go run main.go
 ### Add an event
 ```bash
  curl -sX POST localhost:8080/events -H 'Content-Type: application/json' \
- -d '{"source":"app.web","type":"user_login","payload":{"a":1,"b":3}}' | jq
+ -d '{"source":"app.web","type":"user_login","payload":{"level":"warn","user_id":"id_1","system_status":"healthy"}}' | jq
 ```
 
 ### Get events
@@ -38,6 +38,10 @@ curl -s localhost:8080/events | jq
 curl -s localhost:8080/events/:id | jq 
 ```
 
+### Run Test
+```bash
+go test ./... -v
+```
 
 ### Database choice
 MongoDB was chosen for flexibility ( payload could contain different datas) and futur improvements for the app.
